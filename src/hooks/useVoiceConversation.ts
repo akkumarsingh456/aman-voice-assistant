@@ -47,8 +47,7 @@ export function useVoiceConversation() {
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.permissions) return;
     navigator.permissions
-      // @ts-expect-error - microphone is valid but not in lib types everywhere
-      .query({ name: "microphone" })
+      .query({ name: "microphone" as PermissionName })
       .then((status: PermissionStatus) => {
         setMicPermission(status.state as MicPermission);
         if (status.state === "denied") setMicBlocked(true);
