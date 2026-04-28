@@ -5,7 +5,7 @@ import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MicOff, LogOut, Loader2 } from "lucide-react";
+import { Send, MicOff, LogOut, Loader2, Mic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,8 +31,18 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  const { messages, orbState, interim, capabilities, micBlocked, startListening, sendText } =
-    useVoiceConversation();
+  const {
+    messages,
+    orbState,
+    interim,
+    capabilities,
+    micBlocked,
+    micPermission,
+    audioLevel,
+    startListening,
+    sendText,
+    requestMicPermission,
+  } = useVoiceConversation();
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
