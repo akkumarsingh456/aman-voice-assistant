@@ -1,3 +1,96 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Mic, CheckCircle, AlertCircle } from "lucide-react";
+
+export function TestMicButton({ onComplete }: { onComplete?: (success: boolean) => void }) {
+  const [testing, setTesting] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [result, setResult] = useState<"success" | "fail" | null>(null);
+
+  const testMic = async () => {
+    setTesting(true);
+    setResult(null);
+    setLevel(0);
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioCtx.createAnalyser();
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 256;
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let maxLevel = 0;
+      
+      const interval = setInterval(() => {
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const currentLevel = Math.min(1, rms * 4);
+        setLevel(currentLevel);
+        if (currentLevel > maxLevel) maxLevel = currentLevel;
+      }, 50);
+
+      // Record/test for 2 seconds
+      setTimeout(() => {
+        clearInterval(interval);
+        stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+        audioCtx.close();
+        setTesting(false);
+        
+        const success = maxLevel > 0.02; // A lower threshold works better across different mics
+        setResult(success ? "success" : "fail");
+        if (onComplete) onComplete(success);
+      }, 2000);
+
+    } catch (err) {
+      console.error("Test mic failed:", err);
+      setTesting(false);
+      setResult("fail");
+      if (onComplete) onComplete(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2 mt-2">
+      <Button 
+        variant="secondary" 
+        size="sm" 
+        onClick={testMic} 
+        disabled={testing}
+        className="gap-2 rounded-full px-4 text-xs h-8"
+      >
+        <Mic className="h-3.5 w-3.5" />
+        {testing ? "Testing..." : "Test Microphone"}
+      </Button>
+      
+      {testing && (
+        <div className="w-32 h-1.5 bg-secondary rounded-full overflow-hidden mt-1">
+          <div 
+            className="h-full bg-primary transition-all duration-75" 
+            style={{ width: `${level * 100}%` }} 
+          />
+        </div>
+      )}
+      
+      {result === "success" && !testing && (
+        <span className="text-[11px] text-green-500 flex items-center gap-1 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">
+          <CheckCircle className="h-3 w-3" /> Mic working! Ready to talk.
+        </span>
+      )}
+      {result === "fail" && !testing && (
+        <span className="text-[11px] text-destructive flex items-center gap-1 font-medium bg-destructive/10 px-2 py-0.5 rounded-full">
+          <AlertCircle className="h-3 w-3" /> No audio detected. Check settings.
+        </span>
+      )}
+    </div>
+  );
+}
 import { TestMicButton } from "@/components/TestMicButton";
           {/* Test Mic Button — show after mic is granted */}
           {capabilities.recognition &&
@@ -6,274 +99,3 @@ import { TestMicButton } from "@/components/TestMicButton";
             orbState === "idle" && (
               <TestMicButton />
             )}
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { AmanOrb } from "@/components/AmanOrb";
-import { useVoiceConversation } from "@/hooks/useVoiceConversation";
-import { useAuth } from "@/hooks/useAuth";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Send, MicOff, LogOut, Loader2, Mic } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
-
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Aman — Your Bilingual Voice Assistant" },
-      {
-        name: "description",
-        content:
-          "Aman is a friendly Hindi + English voice AI assistant. Tap, speak, and Aman replies — fast, witty, helpful.",
-      },
-      { property: "og:title", content: "Aman — Voice AI Assistant" },
-      {
-        property: "og:description",
-        content: "Bilingual voice-first AI you can talk to in Hindi or English.",
-      },
-    ],
-  }),
-  component: HomePage,
-});
-
-function HomePage() {
-  const { user, loading, signOut } = useAuth();
-  const navigate = useNavigate();
-  const {
-    messages,
-    orbState,
-    interim,
-    capabilities,
-    micBlocked,
-    micPermission,
-    audioLevel,
-    startListening,
-    sendText,
-    requestMicPermission,
-  } = useVoiceConversation();
-  const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastSavedCountRef = useRef(0);
-
-  // Redirect to /auth if not signed in
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth" });
-  }, [user, loading, navigate]);
-
-  // Create a conversation on first message
-  useEffect(() => {
-    if (!user || conversationId || messages.length === 0) return;
-    (async () => {
-      const firstUserMsg = messages.find((m) => m.role === "user");
-      const title = firstUserMsg ? firstUserMsg.content.slice(0, 60) : "New chat";
-      const { data, error } = await supabase
-        .from("conversations")
-        .insert({ user_id: user.id, title })
-        .select("id")
-        .single();
-      if (!error && data) setConversationId(data.id);
-    })();
-  }, [user, conversationId, messages]);
-
-  // Persist new messages
-  useEffect(() => {
-    if (!user || !conversationId) return;
-    const stable = messages.filter((m) => m.content.trim().length > 0);
-    if (stable.length <= lastSavedCountRef.current) return;
-    const newOnes = stable.slice(lastSavedCountRef.current);
-    lastSavedCountRef.current = stable.length;
-    if (newOnes.length === 0) return;
-    void supabase.from("messages").insert(
-      newOnes.map((m) => ({
-        conversation_id: conversationId,
-        user_id: user.id,
-        role: m.role,
-        content: m.content,
-      })),
-    );
-  }, [messages, user, conversationId]);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, interim]);
-
-  const handleSend = () => {
-    const t = input.trim();
-    if (!t) return;
-    setInput("");
-    void sendText(t);
-  };
-
-  if (loading || !user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </main>
-    );
-  }
-
-  const displayName =
-    (user.user_metadata?.full_name as string | undefined) ||
-    (user.user_metadata?.name as string | undefined) ||
-    user.email?.split("@")[0] ||
-    "you";
-
-  return (
-    <main className="relative flex min-h-screen flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-5">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--primary-glow)]" />
-          <h1 className="font-display text-lg font-semibold tracking-tight">Aman</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Hi, {displayName}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/auth" });
-            }}
-          >
-            <LogOut className="mr-1.5 h-3.5 w-3.5" />
-            Sign out
-          </Button>
-        </div>
-      </header>
-
-      {/* Conversation panel */}
-      <section
-        ref={scrollRef}
-        className="mx-auto w-full max-w-2xl flex-1 overflow-y-auto px-4 pb-6"
-      >
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center pt-12 text-center">
-            <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-              Namaste, I'm <span className="text-gradient-aurora">Aman</span>
-            </h2>
-            <p className="mt-3 max-w-md text-sm text-muted-foreground sm:text-base">
-              Tap the orb and talk to me in Hindi, English, or both. I'll match
-              your language.
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-3 pt-6">
-          <AnimatePresence initial={false}>
-            {messages.map((m, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "glass text-foreground"
-                  }`}
-                >
-                  {m.content || (
-                    <span className="inline-flex gap-1">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-current opacity-60" />
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-current opacity-60 [animation-delay:120ms]" />
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-current opacity-60 [animation-delay:240ms]" />
-                    </span>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {interim && (
-            <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm italic text-muted-foreground">
-                {interim}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Orb + composer */}
-      <section className="sticky bottom-0 mx-auto w-full max-w-2xl px-4 pb-6 pt-2">
-        <div className="flex flex-col items-center gap-4">
-          {capabilities.recognition ? (
-            <AmanOrb
-              state={micBlocked ? "error" : orbState}
-              onTap={startListening}
-              size={180}
-              audioLevel={audioLevel}
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border glass px-5 py-4 text-center">
-              <MicOff className="h-6 w-6 text-muted-foreground" />
-              <p className="max-w-xs text-xs text-muted-foreground">
-                Voice isn't supported in this browser. You can still chat by typing.
-                Try Chrome or Edge for the full voice experience.
-              </p>
-            </div>
-          )}
-
-          {/* Permission prompt — show before mic is granted */}
-          {capabilities.recognition &&
-            !micBlocked &&
-            micPermission !== "granted" &&
-            orbState === "idle" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void requestMicPermission()}
-                className="gap-2"
-              >
-                <Mic className="h-3.5 w-3.5" />
-                Enable microphone
-              </Button>
-            )}
-
-          {micBlocked && (
-            <div className="max-w-xs rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-center">
-              <p className="text-xs font-medium text-destructive">
-                Microphone access blocked
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-destructive/80">
-                Click the lock icon (🔒) in your browser's address bar →
-                Microphone → Allow, then reload the page. You can still chat by
-                typing below.
-              </p>
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex w-full items-center gap-2"
-          >
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Or type your message…"
-              className="glass border-border/50 text-foreground placeholder:text-muted-foreground"
-              maxLength={2000}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="default"
-              disabled={!input.trim() || orbState === "thinking"}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-      </section>
-    </main>
-  );
-}
