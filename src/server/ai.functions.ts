@@ -19,7 +19,7 @@ const SYSTEM_PROMPT = `You are Aman, a friendly bilingual (Hindi + English / Hin
  * Streaming chat with Lovable AI Gateway (Gemini 2.5 Flash).
  * Returns the raw SSE stream from the gateway so the client can render token-by-token.
  */
-export const chatStream = createServerFn({ method: "POST", response: "raw" })
+export const chatStream = createServerFn({ method: "POST" } as any)
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
