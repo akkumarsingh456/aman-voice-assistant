@@ -5,7 +5,7 @@ import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MicOff, LogOut, Loader2 } from "lucide-react";
+import { Send, MicOff, LogOut, Loader2, Mic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,8 +31,18 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  const { messages, orbState, interim, capabilities, micBlocked, startListening, sendText } =
-    useVoiceConversation();
+  const {
+    messages,
+    orbState,
+    interim,
+    capabilities,
+    micBlocked,
+    micPermission,
+    audioLevel,
+    startListening,
+    sendText,
+    requestMicPermission,
+  } = useVoiceConversation();
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -186,7 +196,12 @@ function HomePage() {
       <section className="sticky bottom-0 mx-auto w-full max-w-2xl px-4 pb-6 pt-2">
         <div className="flex flex-col items-center gap-4">
           {capabilities.recognition ? (
-            <AmanOrb state={micBlocked ? "error" : orbState} onTap={startListening} size={180} />
+            <AmanOrb
+              state={micBlocked ? "error" : orbState}
+              onTap={startListening}
+              size={180}
+              audioLevel={audioLevel}
+            />
           ) : (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-border glass px-5 py-4 text-center">
               <MicOff className="h-6 w-6 text-muted-foreground" />
@@ -197,11 +212,33 @@ function HomePage() {
             </div>
           )}
 
+          {/* Permission prompt — show before mic is granted */}
+          {capabilities.recognition &&
+            !micBlocked &&
+            micPermission !== "granted" &&
+            orbState === "idle" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void requestMicPermission()}
+                className="gap-2"
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Enable microphone
+              </Button>
+            )}
+
           {micBlocked && (
-            <p className="text-xs text-destructive">
-              Microphone access denied. Enable it in your browser settings, then
-              refresh.
-            </p>
+            <div className="max-w-xs rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-center">
+              <p className="text-xs font-medium text-destructive">
+                Microphone access blocked
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-destructive/80">
+                Click the lock icon (🔒) in your browser's address bar →
+                Microphone → Allow, then reload the page. You can still chat by
+                typing below.
+              </p>
+            </div>
           )}
 
           <form
