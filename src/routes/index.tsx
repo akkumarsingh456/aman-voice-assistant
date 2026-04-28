@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AmanOrb } from "@/components/AmanOrb";
 import { useVoiceConversation } from "@/hooks/useVoiceConversation";
+import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MicOff } from "lucide-react";
+import { Send, MicOff, LogOut, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,10 +29,52 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const { messages, orbState, interim, capabilities, micBlocked, startListening, sendText } =
     useVoiceConversation();
   const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastSavedCountRef = useRef(0);
+
+  // Redirect to /auth if not signed in
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [user, loading, navigate]);
+
+  // Create a conversation on first message
+  useEffect(() => {
+    if (!user || conversationId || messages.length === 0) return;
+    (async () => {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      const title = firstUserMsg ? firstUserMsg.content.slice(0, 60) : "New chat";
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({ user_id: user.id, title })
+        .select("id")
+        .single();
+      if (!error && data) setConversationId(data.id);
+    })();
+  }, [user, conversationId, messages]);
+
+  // Persist new messages
+  useEffect(() => {
+    if (!user || !conversationId) return;
+    const stable = messages.filter((m) => m.content.trim().length > 0);
+    if (stable.length <= lastSavedCountRef.current) return;
+    const newOnes = stable.slice(lastSavedCountRef.current);
+    lastSavedCountRef.current = stable.length;
+    if (newOnes.length === 0) return;
+    void supabase.from("messages").insert(
+      newOnes.map((m) => ({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: m.role,
+        content: m.content,
+      })),
+    );
+  }, [messages, user, conversationId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -43,17 +87,44 @@ function HomePage() {
     void sendText(t);
   };
 
+  if (loading || !user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </main>
+    );
+  }
+
+  const displayName =
+    (user.user_metadata?.full_name as string | undefined) ||
+    (user.user_metadata?.name as string | undefined) ||
+    user.email?.split("@")[0] ||
+    "you";
+
   return (
     <main className="relative flex min-h-screen flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--primary-glow)]" />
-          <h1 className="font-display text-lg font-semibold tracking-tight">
-            Aman
-          </h1>
+          <h1 className="font-display text-lg font-semibold tracking-tight">Aman</h1>
         </div>
-        <span className="text-xs text-muted-foreground">v0.1 · voice preview</span>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            Hi, {displayName}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/auth" });
+            }}
+          >
+            <LogOut className="mr-1.5 h-3.5 w-3.5" />
+            Sign out
+          </Button>
+        </div>
       </header>
 
       {/* Conversation panel */}
