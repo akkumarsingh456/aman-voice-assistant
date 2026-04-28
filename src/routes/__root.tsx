@@ -34,6 +34,13 @@ export const Route = createRootRoute({
       { name: "description", content: "Aman — your bilingual Hindi + English voice AI assistant." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { title: "Lovable App" },
+      { property: "og:title", content: "Lovable App" },
+      { name: "twitter:title", content: "Lovable App" },
+      { property: "og:description", content: "Aman — your bilingual Hindi + English voice AI assistant." },
+      { name: "twitter:description", content: "Aman — your bilingual Hindi + English voice AI assistant." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ddc5d6f8-f0d0-4504-89ab-d658f9df25cf/id-preview-a6aed039--7abbd30e-1acf-4ac8-89ea-7d79fcdb627d.lovable.app-1777405245715.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ddc5d6f8-f0d0-4504-89ab-d658f9df25cf/id-preview-a6aed039--7abbd30e-1acf-4ac8-89ea-7d79fcdb627d.lovable.app-1777405245715.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
