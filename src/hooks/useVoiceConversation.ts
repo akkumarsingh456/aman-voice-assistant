@@ -90,12 +90,12 @@ export function useVoiceConversation() {
       let firstToken = true;
 
       try {
-        // Static import would create SSR coupling; this hook only runs in browser
-        const { chatStream } = await import("@/server/ai.functions");
-        const response = (await chatStream({
-          data: { messages: history },
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history }),
           signal: controller.signal,
-        } as any)) as unknown as Response;
+        });
 
         if (!response.ok || !response.body) {
           const errBody = await response.json().catch(() => ({ error: "Unknown error" }));
