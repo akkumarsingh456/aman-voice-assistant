@@ -166,10 +166,11 @@ export function useVoiceConversation() {
         // ignore
       }
     }
+    stopMeter();
     ttsBufferRef.current = "";
     setInterim("");
     setOrbState("idle");
-  }, [capabilities.synthesis]);
+  }, [capabilities.synthesis, stopMeter]);
 
   // ───── Send to AI (streaming) ─────
   const sendToAI = useCallback(
