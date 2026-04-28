@@ -23,17 +23,115 @@ function detectLang(text: string): "en-IN" | "hi-IN" {
 
 const SENTENCE_END = /([.!?。！？]|[\n])\s*/;
 
+export type MicPermission = "unknown" | "prompt" | "granted" | "denied";
+
 export function useVoiceConversation() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [interim, setInterim] = useState("");
   const [capabilities] = useState<VoiceCapabilities>(detectCapabilities);
   const [micBlocked, setMicBlocked] = useState(false);
+  const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
+  const [audioLevel, setAudioLevel] = useState(0);
 
   const recognitionRef = useRef<any>(null);
   const abortRef = useRef<AbortController | null>(null);
   const ttsBufferRef = useRef("");
   const ttsLangRef = useRef<"en-IN" | "hi-IN">("en-IN");
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Query existing permission state on mount (Chromium browsers)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.permissions) return;
+    navigator.permissions
+      // @ts-expect-error - microphone is valid but not in lib types everywhere
+      .query({ name: "microphone" })
+      .then((status: PermissionStatus) => {
+        setMicPermission(status.state as MicPermission);
+        if (status.state === "denied") setMicBlocked(true);
+        status.onchange = () => {
+          setMicPermission(status.state as MicPermission);
+          if (status.state === "granted") setMicBlocked(false);
+          if (status.state === "denied") setMicBlocked(true);
+        };
+      })
+      .catch(() => {
+        /* permissions API not available */
+      });
+  }, []);
+
+  // Stop the audio level meter & release mic
+  const stopMeter = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevel(0);
+  }, []);
+
+  // Start audio level meter from a granted media stream
+  const startMeter = useCallback((stream: MediaStream) => {
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+      const ctx = new Ctx();
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        setAudioLevel(Math.min(1, rms * 4));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch (err) {
+      console.warn("Audio meter unavailable:", err);
+    }
+  }, []);
+
+  // Explicitly request mic permission (triggers the browser prompt)
+  const requestMicPermission = useCallback(async (): Promise<boolean> => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setMicBlocked(true);
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Release immediately — recognition will manage its own stream.
+      stream.getTracks().forEach((t) => t.stop());
+      setMicPermission("granted");
+      setMicBlocked(false);
+      return true;
+    } catch (err: any) {
+      console.warn("Mic permission denied:", err?.name);
+      setMicPermission("denied");
+      setMicBlocked(true);
+      return false;
+    }
+  }, []);
+
 
   // ───── TTS helpers ─────
   const speakChunk = useCallback((text: string, lang: "en-IN" | "hi-IN") => {
