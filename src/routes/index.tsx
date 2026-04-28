@@ -1,3 +1,11 @@
+import { TestMicButton } from "@/components/TestMicButton";
+          {/* Test Mic Button — show after mic is granted */}
+          {capabilities.recognition &&
+            !micBlocked &&
+            micPermission === "granted" &&
+            orbState === "idle" && (
+              <TestMicButton />
+            )}
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AmanOrb } from "@/components/AmanOrb";
