@@ -297,7 +297,7 @@ export function useVoiceConversation() {
   );
 
   // ───── Recognition ─────
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (!capabilities.recognition) return;
 
     // If currently speaking/thinking → interrupt
@@ -305,13 +305,38 @@ export function useVoiceConversation() {
       stopAll();
       return;
     }
+    // If already listening → tap to stop
+    if (orbState === "listening" && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* noop */ }
+      return;
+    }
+
+    // Make sure we have mic permission FIRST — this triggers the browser prompt
+    // explicitly so users see it on tap, not silently inside the recognition API.
+    if (micPermission !== "granted") {
+      const ok = await requestMicPermission();
+      if (!ok) {
+        setOrbState("error");
+        return;
+      }
+    }
+
+    // Acquire a stream we own for the level meter (recognition uses its own).
+    let meterStream: MediaStream | null = null;
+    try {
+      meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = meterStream;
+      startMeter(meterStream);
+    } catch {
+      // Meter is non-essential; recognition can still run.
+    }
 
     const SR =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
-    rec.lang = "en-IN"; // we'll re-detect once we have full text
+    rec.lang = "en-IN";
     rec.maxAlternatives = 1;
 
     let finalText = "";
@@ -339,7 +364,9 @@ export function useVoiceConversation() {
     };
     rec.onerror = (e: any) => {
       if (silenceTimer) clearTimeout(silenceTimer);
+      stopMeter();
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setMicPermission("denied");
         setMicBlocked(true);
         setOrbState("error");
         return;
@@ -353,6 +380,7 @@ export function useVoiceConversation() {
     };
     rec.onend = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
+      stopMeter();
       setInterim("");
       const text = finalText.trim();
       recognitionRef.current = null;
@@ -368,9 +396,19 @@ export function useVoiceConversation() {
       rec.start();
     } catch (err) {
       console.error(err);
+      stopMeter();
       setOrbState("idle");
     }
-  }, [capabilities.recognition, orbState, sendText, stopAll]);
+  }, [
+    capabilities.recognition,
+    orbState,
+    sendText,
+    stopAll,
+    micPermission,
+    requestMicPermission,
+    startMeter,
+    stopMeter,
+  ]);
 
   // Pause when tab hidden
   useEffect(() => {
@@ -381,14 +419,25 @@ export function useVoiceConversation() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [stopAll]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopMeter();
+    };
+  }, [stopMeter]);
+
   return {
     messages,
     orbState,
     interim,
     capabilities,
     micBlocked,
+    micPermission,
+    audioLevel,
     startListening,
     stopAll,
     sendText,
+    requestMicPermission,
   };
 }
+
