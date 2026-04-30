@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrbState } from "@/components/AmanOrb";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
