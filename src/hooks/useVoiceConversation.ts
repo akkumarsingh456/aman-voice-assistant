@@ -143,18 +143,7 @@ export function useVoiceConversation() {
     window.speechSynthesis.speak(u);
   }, [capabilities.synthesis]);
 
-  const flushBufferedSentences = useCallback(() => {
-    let buf = ttsBufferRef.current;
-    while (true) {
-      const m = buf.match(SENTENCE_END);
-      if (!m || m.index === undefined) break;
-      const end = m.index + m[0].length;
-      const sentence = buf.slice(0, end).trim();
-      buf = buf.slice(end);
-      if (sentence) speakChunk(sentence, ttsLangRef.current);
-    }
-    ttsBufferRef.current = buf;
-  }, [speakChunk]);
+
 
   const stopAll = useCallback(() => {
     abortRef.current?.abort();
