@@ -168,105 +168,98 @@ export function useVoiceConversation() {
       }
     }
     stopMeter();
-    ttsBufferRef.current = "";
     setInterim("");
     setOrbState("idle");
   }, [capabilities.synthesis, stopMeter]);
 
-  // ───── Send to AI (streaming) ─────
+  // Speak a long reply by chunking on sentence boundaries (smoother than one big utterance).
+  const speakReply = useCallback(
+    (text: string, lang: "en-IN" | "hi-IN") => {
+      if (!capabilities.synthesis) return;
+      window.speechSynthesis.cancel();
+      const parts = text.split(SENTENCE_END).filter((s) => s && s.trim().length > 1);
+      const chunks: string[] = [];
+      let buf = "";
+      for (const p of parts) {
+        buf += p;
+        if (/[.!?。！？\n]$/.test(buf)) {
+          chunks.push(buf.trim());
+          buf = "";
+        }
+      }
+      if (buf.trim()) chunks.push(buf.trim());
+      for (const c of chunks.length ? chunks : [text]) {
+        speakChunk(c, lang);
+      }
+    },
+    [capabilities.synthesis, speakChunk],
+  );
+
+  // ───── Send to AI (non-streaming, tool-aware) ─────
   const sendToAI = useCallback(
     async (history: ChatMessage[]) => {
       setOrbState("thinking");
-      ttsBufferRef.current = "";
-      ttsLangRef.current = detectLang(history[history.length - 1]?.content ?? "");
+      const lastUser = history[history.length - 1]?.content ?? "";
+      ttsLangRef.current = detectLang(lastUser);
 
-      // Append empty assistant placeholder to update progressively
+      // Optimistic empty assistant bubble
       setMessages((m) => [...m, { role: "assistant", content: "" }]);
 
       const controller = new AbortController();
       abortRef.current = controller;
-      let assistantText = "";
-      let firstToken = true;
 
       try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (!token) throw new Error("Please sign in.");
+
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            messages: history,
+            conversation_id: conversationIdRef.current,
+          }),
           signal: controller.signal,
         });
 
-        if (!response.ok || !response.body) {
-          const errBody = await response.json().catch(() => ({ error: "Unknown error" }));
-          throw new Error(errBody.error || `HTTP ${response.status}`);
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json?.error || `HTTP ${response.status}`);
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let textBuffer = "";
-        let done = false;
+        const reply: string = json.reply ?? "";
+        if (json.conversation_id) conversationIdRef.current = json.conversation_id;
 
-        while (!done) {
-          const { done: rDone, value } = await reader.read();
-          if (rDone) break;
-          textBuffer += decoder.decode(value, { stream: true });
+        const replyLang = detectLang(reply);
+        ttsLangRef.current = replyLang;
 
-          let nl: number;
-          while ((nl = textBuffer.indexOf("\n")) !== -1) {
-            let line = textBuffer.slice(0, nl);
-            textBuffer = textBuffer.slice(nl + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const json = line.slice(6).trim();
-            if (json === "[DONE]") {
-              done = true;
-              break;
-            }
-            try {
-              const parsed = JSON.parse(json);
-              const delta: string | undefined = parsed.choices?.[0]?.delta?.content;
-              if (delta) {
-                if (firstToken) {
-                  firstToken = false;
-                  setOrbState("speaking");
-                }
-                assistantText += delta;
-                ttsBufferRef.current += delta;
-                flushBufferedSentences();
-                setMessages((m) => {
-                  const copy = [...m];
-                  copy[copy.length - 1] = { role: "assistant", content: assistantText };
-                  return copy;
-                });
-              }
-            } catch {
-              textBuffer = line + "\n" + textBuffer;
-              break;
-            }
-          }
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = { role: "assistant", content: reply };
+          return copy;
+        });
+
+        if (capabilities.synthesis && reply) {
+          setOrbState("speaking");
+          speakReply(reply, replyLang);
+          const checkIdle = () => {
+            if (window.speechSynthesis.speaking) setTimeout(checkIdle, 250);
+            else setOrbState("idle");
+          };
+          checkIdle();
+        } else {
+          setOrbState("idle");
         }
-
-        // Flush remainder
-        if (ttsBufferRef.current.trim()) {
-          speakChunk(ttsBufferRef.current.trim(), ttsLangRef.current);
-          ttsBufferRef.current = "";
-        }
-
-        // Wait for TTS to actually finish before returning to idle
-        const checkIdle = () => {
-          if (capabilities.synthesis && window.speechSynthesis.speaking) {
-            setTimeout(checkIdle, 250);
-          } else {
-            setOrbState("idle");
-          }
-        };
-        checkIdle();
       } catch (err: any) {
         if (err?.name === "AbortError") {
           setOrbState("idle");
           return;
         }
-        console.error("Chat stream error:", err);
+        console.error("Chat error:", err);
         setMessages((m) => {
           const copy = [...m];
           const last = copy[copy.length - 1];
@@ -283,7 +276,7 @@ export function useVoiceConversation() {
         abortRef.current = null;
       }
     },
-    [capabilities.synthesis, flushBufferedSentences, speakChunk],
+    [capabilities.synthesis, speakReply],
   );
 
   const sendText = useCallback(
