@@ -1,107 +1,109 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
+import { chatWithTools } from "@/server/aman-brain.server";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
-      GET: async () => {
-        return new Response(
-          "Aman Voice Assistant API is running. Use the frontend UI to chat with Aman.",
-          { status: 200, headers: { "Content-Type": "text/plain" } },
-        );
-      },
+      GET: async () =>
+        new Response("Aman Voice Assistant API. POST messages here.", {
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+        }),
       POST: async ({ request }) => {
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) {
-          return new Response(
-            JSON.stringify({ error: "AI gateway not configured" }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
-          );
-        }
-
-        let body: { messages?: Array<{ role: string; content: string }> } = {};
         try {
-          body = await request.json();
-        } catch {
-          return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        const messages = Array.isArray(body.messages) ? body.messages : [];
-        if (messages.length === 0) {
-          return new Response(JSON.stringify({ error: "No messages provided" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        const systemPrompt = {
-          role: "system",
-          content:
-            "You are Aman — a friendly, witty, bilingual personal AI assistant. " +
-            "Detect the user's language (English, Hindi, or Hinglish) and respond in the SAME language naturally. " +
-            "Keep replies concise, warm, and conversational — like a smart friend. " +
-            "Use short sentences (good for voice). Avoid markdown formatting in responses.",
-        };
-
-        try {
-          const upstream = await fetch(
-            "https://ai.gateway.lovable.dev/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
-                stream: true,
-                messages: [systemPrompt, ...messages],
-              }),
-            },
-          );
-
-          if (upstream.status === 429) {
-            return new Response(
-              JSON.stringify({ error: "Rate limit reached. Please slow down." }),
-              { status: 429, headers: { "Content-Type": "application/json" } },
-            );
-          }
-          if (upstream.status === 402) {
-            return new Response(
-              JSON.stringify({
-                error: "AI credits exhausted. Add credits in Lovable settings.",
-              }),
-              { status: 402, headers: { "Content-Type": "application/json" } },
-            );
-          }
-          if (!upstream.ok || !upstream.body) {
-            const text = await upstream.text().catch(() => "");
-            return new Response(
-              JSON.stringify({
-                error: `AI gateway error (${upstream.status}): ${text.slice(0, 200)}`,
-              }),
-              { status: 502, headers: { "Content-Type": "application/json" } },
-            );
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+          if (!supabaseUrl || !publishableKey) {
+            return Response.json({ error: "Backend not configured" }, { status: 500 });
           }
 
-          return new Response(upstream.body, {
-            status: 200,
-            headers: {
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              Connection: "keep-alive",
-            },
+          // Require auth — extract bearer token
+          const authHeader = request.headers.get("authorization") ?? "";
+          const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+          if (!token) {
+            return Response.json({ error: "Not authenticated" }, { status: 401 });
+          }
+
+          // Build a per-request Supabase client that runs as the user (RLS applies)
+          const supabase = createClient(supabaseUrl, publishableKey, {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+            auth: { persistSession: false, autoRefreshToken: false },
           });
+
+          const { data: userData, error: userErr } = await supabase.auth.getUser();
+          if (userErr || !userData?.user) {
+            return Response.json({ error: "Invalid session" }, { status: 401 });
+          }
+          const userId = userData.user.id;
+
+          const body = (await request.json().catch(() => ({}))) as {
+            messages?: Array<{ role: string; content: string }>;
+            conversation_id?: string;
+          };
+          const incoming = Array.isArray(body.messages) ? body.messages : [];
+          if (incoming.length === 0) {
+            return Response.json({ error: "No messages" }, { status: 400 });
+          }
+          const lastUser = incoming[incoming.length - 1];
+          if (lastUser.role !== "user") {
+            return Response.json({ error: "Last message must be user" }, { status: 400 });
+          }
+
+          // Get or create conversation
+          let conversationId = body.conversation_id;
+          if (!conversationId) {
+            const title = lastUser.content.slice(0, 60);
+            const { data: conv, error: convErr } = await supabase
+              .from("conversations")
+              .insert({ user_id: userId, title })
+              .select("id")
+              .single();
+            if (convErr) {
+              return Response.json({ error: convErr.message }, { status: 500 });
+            }
+            conversationId = conv.id;
+          }
+
+          // Persist the user message
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            user_id: userId,
+            role: "user",
+            content: lastUser.content,
+          });
+
+          // Load full conversation history (server-side, authoritative)
+          const { data: historyRows } = await supabase
+            .from("messages")
+            .select("role, content")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: true });
+
+          const history = (historyRows ?? []).map((r) => ({
+            role: r.role,
+            content: r.content,
+          }));
+
+          // Run AI with tools
+          const reply = await chatWithTools(history, { supabase, userId });
+
+          // Persist assistant reply
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            user_id: userId,
+            role: "assistant",
+            content: reply,
+          });
+
+          return Response.json({ reply, conversation_id: conversationId });
         } catch (err) {
-          console.error("Chat handler error:", err);
-          return new Response(
-            JSON.stringify({
-              error: err instanceof Error ? err.message : "Unknown server error",
-            }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
-          );
+          console.error("Chat error:", err);
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          const status = /rate limit|429/i.test(msg) ? 429
+            : /402|credits/i.test(msg) ? 402
+            : 500;
+          return Response.json({ error: msg }, { status });
         }
       },
     },

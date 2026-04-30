@@ -100,6 +100,45 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          channel: string
+          created_at: string
+          delivered: boolean
+          delivered_at: string | null
+          id: string
+          remind_at: string
+          telegram_chat_id: number | null
+          text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          delivered?: boolean
+          delivered_at?: string | null
+          id?: string
+          remind_at: string
+          telegram_chat_id?: number | null
+          text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          delivered?: boolean
+          delivered_at?: string | null
+          id?: string
+          remind_at?: string
+          telegram_chat_id?: number | null
+          text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       telegram_bot_state: {
         Row: {
           id: number
