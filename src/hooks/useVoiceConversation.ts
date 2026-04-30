@@ -34,10 +34,10 @@ export function useVoiceConversation() {
   const [micBlocked, setMicBlocked] = useState(false);
   const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
   const [audioLevel, setAudioLevel] = useState(0);
+  const conversationIdRef = useRef<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const ttsBufferRef = useRef("");
   const ttsLangRef = useRef<"en-IN" | "hi-IN">("en-IN");
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
