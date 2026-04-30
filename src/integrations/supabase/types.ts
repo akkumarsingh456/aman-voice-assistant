@@ -100,6 +100,54 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_bot_state: {
+        Row: {
+          id: number
+          update_offset: number
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_messages: {
+        Row: {
+          aman_reply: string | null
+          chat_id: number
+          created_at: string
+          from_username: string | null
+          raw_update: Json
+          update_id: number
+          user_text: string | null
+        }
+        Insert: {
+          aman_reply?: string | null
+          chat_id: number
+          created_at?: string
+          from_username?: string | null
+          raw_update: Json
+          update_id: number
+          user_text?: string | null
+        }
+        Update: {
+          aman_reply?: string | null
+          chat_id?: number
+          created_at?: string
+          from_username?: string | null
+          raw_update?: Json
+          update_id?: number
+          user_text?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
