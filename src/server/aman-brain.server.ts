@@ -62,6 +62,42 @@ export const TOOLS = [
   {
     type: "function",
     function: {
+      name: "save_note",
+      description:
+        "Save a note / idea / to-do for the user. Auto-pick category from: Idea, To-Do, Important, Random, Shopping, Other.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The note content as the user said it." },
+          category: {
+            type: "string",
+            enum: ["Idea", "To-Do", "Important", "Random", "Shopping", "Other"],
+          },
+        },
+        required: ["text", "category"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_notes",
+      description: "List the user's recent saved notes, optionally filtered by category.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["Idea", "To-Do", "Important", "Random", "Shopping", "Other"],
+          },
+          limit: { type: "number", description: "Max results (default 20)." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "web_search",
       description: "Search the web for current information. Returns top result snippets.",
       parameters: {
