@@ -10,8 +10,10 @@ export const SYSTEM_PROMPT =
   "Detect the user's language (English, Hindi, or Hinglish) and respond in the SAME language naturally. " +
   "Keep replies concise, warm, conversational — like a smart friend. Short sentences (good for voice). " +
   "Avoid markdown formatting in responses. " +
-  "You have tools: get_weather, set_reminder, list_reminders, web_search, make_whatsapp_link, send_telegram_message. " +
-  "Use tools when the user asks for real info (weather, reminders, sending a message). " +
+  "You have tools: get_weather, set_reminder, list_reminders, save_note, list_notes, web_search, make_whatsapp_link, send_telegram_message. " +
+  "Use tools when the user asks for real info (weather, reminders, notes, sending a message). " +
+  "When the user says 'save this', 'note karo', 'yaad rakhna', 'idea save karo' — call save_note. " +
+  "Auto-pick category from: Idea, To-Do, Important, Random, Shopping, Other. " +
   "For WhatsApp: you cannot type into the WhatsApp app — instead use make_whatsapp_link to give the user a tap-to-open link. " +
   "Never invent weather data; always call get_weather. Times for reminders must be ISO 8601 in user's local timezone if known, else UTC.";
 
@@ -55,6 +57,42 @@ export const TOOLS = [
       name: "list_reminders",
       description: "List the user's upcoming (undelivered) reminders.",
       parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_note",
+      description:
+        "Save a note / idea / to-do for the user. Auto-pick category from: Idea, To-Do, Important, Random, Shopping, Other.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The note content as the user said it." },
+          category: {
+            type: "string",
+            enum: ["Idea", "To-Do", "Important", "Random", "Shopping", "Other"],
+          },
+        },
+        required: ["text", "category"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_notes",
+      description: "List the user's recent saved notes, optionally filtered by category.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["Idea", "To-Do", "Important", "Random", "Shopping", "Other"],
+          },
+          limit: { type: "number", description: "Max results (default 20)." },
+        },
+      },
     },
   },
   {
@@ -231,6 +269,32 @@ export async function runTool(
         .limit(20);
       if (error) return { error: error.message };
       return { reminders: data };
+    }
+    case "save_note": {
+      if (!ctx.supabase || !ctx.userId) return { error: "Sign-in required to save notes." };
+      const { data, error } = await ctx.supabase
+        .from("notes")
+        .insert({
+          user_id: ctx.userId,
+          text: args.text,
+          category: args.category ?? "Other",
+        })
+        .select("id, text, category, created_at")
+        .single();
+      if (error) return { error: error.message };
+      return { ok: true, note: data };
+    }
+    case "list_notes": {
+      if (!ctx.supabase || !ctx.userId) return { error: "Sign-in required." };
+      let q = ctx.supabase
+        .from("notes")
+        .select("id, text, category, created_at")
+        .order("created_at", { ascending: false })
+        .limit(args.limit ?? 20);
+      if (args.category) q = q.eq("category", args.category);
+      const { data, error } = await q;
+      if (error) return { error: error.message };
+      return { notes: data };
     }
     default:
       return { error: `Unknown tool: ${name}` };
