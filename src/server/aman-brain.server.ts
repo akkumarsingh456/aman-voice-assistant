@@ -270,6 +270,32 @@ export async function runTool(
       if (error) return { error: error.message };
       return { reminders: data };
     }
+    case "save_note": {
+      if (!ctx.supabase || !ctx.userId) return { error: "Sign-in required to save notes." };
+      const { data, error } = await ctx.supabase
+        .from("notes")
+        .insert({
+          user_id: ctx.userId,
+          text: args.text,
+          category: args.category ?? "Other",
+        })
+        .select("id, text, category, created_at")
+        .single();
+      if (error) return { error: error.message };
+      return { ok: true, note: data };
+    }
+    case "list_notes": {
+      if (!ctx.supabase || !ctx.userId) return { error: "Sign-in required." };
+      let q = ctx.supabase
+        .from("notes")
+        .select("id, text, category, created_at")
+        .order("created_at", { ascending: false })
+        .limit(args.limit ?? 20);
+      if (args.category) q = q.eq("category", args.category);
+      const { data, error } = await q;
+      if (error) return { error: error.message };
+      return { notes: data };
+    }
     default:
       return { error: `Unknown tool: ${name}` };
   }
