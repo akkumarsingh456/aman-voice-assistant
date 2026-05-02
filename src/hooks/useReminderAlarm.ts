@@ -7,6 +7,29 @@ type DueReminder = {
   remind_at: string;
 };
 
+async function getCustomSongUrl(): Promise<string | null> {
+  if (typeof indexedDB === "undefined") return null;
+  return new Promise((resolve) => {
+    const req = indexedDB.open("aman-alarm", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("song");
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      try {
+        const db = req.result;
+        const tx = db.transaction("song", "readonly");
+        const r = tx.objectStore("song").get("current");
+        r.onsuccess = () => {
+          const v = r.result as { blob: Blob } | undefined;
+          resolve(v?.blob ? URL.createObjectURL(v.blob) : null);
+        };
+        r.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    };
+  });
+}
+
 /**
  * Polls reminders every 20s while app is open; rings a tone when one is due.
  * Browser-only — locked phone won't fire (use Telegram channel for that).
