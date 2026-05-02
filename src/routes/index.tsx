@@ -267,6 +267,9 @@ function HomePage() {
           <TabsContent value="reminders" className="mt-3 flex-1 overflow-y-auto pb-32">
             <RemindersPanel refreshKey={refreshTick} />
           </TabsContent>
+          <TabsContent value="timeline" className="mt-3 flex-1 overflow-y-auto pb-32">
+            <TimelinePanel refreshKey={refreshTick} />
+          </TabsContent>
           <TabsContent value="history" className="mt-3 flex-1 overflow-y-auto pb-32">
             <HistoryPanel refreshKey={refreshTick} />
           </TabsContent>
