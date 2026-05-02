@@ -5,6 +5,7 @@ import { TestMicButton } from "@/components/TestMicButton";
 import { NotebookPanel } from "@/components/NotebookPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { TimelinePanel } from "@/components/TimelinePanel";
 import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
@@ -12,6 +13,14 @@ import { useReminderAlarm } from "@/hooks/useReminderAlarm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportCsv, exportPdf } from "@/lib/exportData";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +38,8 @@ import {
   BellRing,
   History,
   MessageCircle,
+  FileDown,
+  Clock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
