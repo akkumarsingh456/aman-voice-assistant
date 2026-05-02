@@ -132,3 +132,7 @@ finally:
     mic_stream.stop_stream()
     mic_stream.close()
     audio.terminate()
+
+user_query = "What is the weather?" # Example captured text
+response = brain.get_ai_response(user_query, ai_choice="gemini")
+print(response)
