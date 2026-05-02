@@ -5,6 +5,7 @@ import { TestMicButton } from "@/components/TestMicButton";
 import { NotebookPanel } from "@/components/NotebookPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { TimelinePanel } from "@/components/TimelinePanel";
 import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
@@ -12,6 +13,14 @@ import { useReminderAlarm } from "@/hooks/useReminderAlarm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportCsv, exportPdf } from "@/lib/exportData";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +38,8 @@ import {
   BellRing,
   History,
   MessageCircle,
+  FileDown,
+  Clock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -115,6 +126,42 @@ function HomePage() {
           <h1 className="text-lg font-semibold tracking-tight">Aman</h1>
         </div>
         <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <FileDown className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  toast.promise(exportPdf(), {
+                    loading: "Building PDF…",
+                    success: "PDF downloaded",
+                    error: "Export failed",
+                  });
+                }}
+              >
+                Download PDF report
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  toast.promise(exportCsv(), {
+                    loading: "Exporting CSVs…",
+                    success: "CSV files downloaded",
+                    error: "Export failed",
+                  });
+                }}
+              >
+                Download CSV files
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canInstall && (
             <Button
               variant="ghost"
@@ -140,18 +187,22 @@ function HomePage() {
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4">
         <Tabs value={tab} onValueChange={setTab} className="flex h-full flex-col">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="chat" className="gap-1.5">
               <MessageCircle className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-1.5">
               <StickyNote className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Notebook</span>
+              <span className="hidden sm:inline">Notes</span>
             </TabsTrigger>
             <TabsTrigger value="reminders" className="gap-1.5">
               <BellRing className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Reminders</span>
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Timeline</span>
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5">
               <History className="h-3.5 w-3.5" />
@@ -215,6 +266,9 @@ function HomePage() {
           </TabsContent>
           <TabsContent value="reminders" className="mt-3 flex-1 overflow-y-auto pb-32">
             <RemindersPanel refreshKey={refreshTick} />
+          </TabsContent>
+          <TabsContent value="timeline" className="mt-3 flex-1 overflow-y-auto pb-32">
+            <TimelinePanel refreshKey={refreshTick} />
           </TabsContent>
           <TabsContent value="history" className="mt-3 flex-1 overflow-y-auto pb-32">
             <HistoryPanel refreshKey={refreshTick} />
