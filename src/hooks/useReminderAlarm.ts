@@ -38,6 +38,7 @@ export function useReminderAlarm() {
   const [ringing, setRinging] = useState<DueReminder | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const oscRef = useRef<{ stop: () => void } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Poll every 20s
   useEffect(() => {
