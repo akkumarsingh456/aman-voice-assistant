@@ -67,51 +67,74 @@ export function useReminderAlarm() {
   useEffect(() => {
     if (!ringing) return;
     if (typeof window === "undefined") return;
-    try {
-      const Ctx =
-        window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new Ctx();
-      ctxRef.current = ctx;
+    let cancelled = false;
 
-      // Pleasant double-tone loop
-      let stopped = false;
-      const playPattern = () => {
-        if (stopped) return;
-        const t0 = ctx.currentTime;
-        [0, 0.35].forEach((delay, i) => {
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.type = "sine";
-          o.frequency.value = i === 0 ? 880 : 660;
-          g.gain.setValueAtTime(0, t0 + delay);
-          g.gain.linearRampToValueAtTime(0.18, t0 + delay + 0.02);
-          g.gain.linearRampToValueAtTime(0, t0 + delay + 0.28);
-          o.connect(g).connect(ctx.destination);
-          o.start(t0 + delay);
-          o.stop(t0 + delay + 0.3);
-        });
-        setTimeout(playPattern, 1100);
-      };
-      playPattern();
-      oscRef.current = {
-        stop: () => {
-          stopped = true;
-          ctx.close().catch(() => {});
-        },
-      };
-    } catch (err) {
-      console.warn("Alarm audio unavailable:", err);
-    }
+    void (async () => {
+      const url = await getCustomSongUrl();
+      if (cancelled) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
+      if (url) {
+        const audio = new Audio(url);
+        audio.loop = true;
+        audio.volume = 0.9;
+        audioRef.current = audio;
+        audio.play().catch((e) => console.warn("song play failed", e));
+      } else {
+        try {
+          const Ctx =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext })
+              .webkitAudioContext;
+          const ctx = new Ctx();
+          ctxRef.current = ctx;
+          let stopped = false;
+          const playPattern = () => {
+            if (stopped) return;
+            const t0 = ctx.currentTime;
+            [0, 0.35].forEach((delay, i) => {
+              const o = ctx.createOscillator();
+              const g = ctx.createGain();
+              o.type = "sine";
+              o.frequency.value = i === 0 ? 880 : 660;
+              g.gain.setValueAtTime(0, t0 + delay);
+              g.gain.linearRampToValueAtTime(0.18, t0 + delay + 0.02);
+              g.gain.linearRampToValueAtTime(0, t0 + delay + 0.28);
+              o.connect(g).connect(ctx.destination);
+              o.start(t0 + delay);
+              o.stop(t0 + delay + 0.3);
+            });
+            setTimeout(playPattern, 1100);
+          };
+          playPattern();
+          oscRef.current = {
+            stop: () => {
+              stopped = true;
+              ctx.close().catch(() => {});
+            },
+          };
+        } catch (err) {
+          console.warn("Alarm audio unavailable:", err);
+        }
+      }
+    })();
 
-    // Vibrate if available
     try {
       navigator.vibrate?.([400, 200, 400, 200, 400]);
     } catch {}
 
     return () => {
+      cancelled = true;
       oscRef.current?.stop();
       oscRef.current = null;
       ctxRef.current = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        const src = audioRef.current.src;
+        audioRef.current = null;
+        if (src.startsWith("blob:")) URL.revokeObjectURL(src);
+      }
     };
   }, [ringing]);
 
