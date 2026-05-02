@@ -126,6 +126,42 @@ function HomePage() {
           <h1 className="text-lg font-semibold tracking-tight">Aman</h1>
         </div>
         <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <FileDown className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  toast.promise(exportPdf(), {
+                    loading: "Building PDF…",
+                    success: "PDF downloaded",
+                    error: "Export failed",
+                  });
+                }}
+              >
+                Download PDF report
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  toast.promise(exportCsv(), {
+                    loading: "Exporting CSVs…",
+                    success: "CSV files downloaded",
+                    error: "Export failed",
+                  });
+                }}
+              >
+                Download CSV files
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canInstall && (
             <Button
               variant="ghost"
@@ -151,18 +187,22 @@ function HomePage() {
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4">
         <Tabs value={tab} onValueChange={setTab} className="flex h-full flex-col">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="chat" className="gap-1.5">
               <MessageCircle className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-1.5">
               <StickyNote className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Notebook</span>
+              <span className="hidden sm:inline">Notes</span>
             </TabsTrigger>
             <TabsTrigger value="reminders" className="gap-1.5">
               <BellRing className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Reminders</span>
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Timeline</span>
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5">
               <History className="h-3.5 w-3.5" />
