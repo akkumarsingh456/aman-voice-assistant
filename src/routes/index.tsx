@@ -213,7 +213,7 @@ function HomePage() {
           <TabsContent value="chat" className="mt-3 flex-1">
             <div
               ref={scrollRef}
-              className="h-[calc(100vh-330px)] overflow-y-auto pb-4"
+              className="h-[calc(100vh-280px)] overflow-y-auto pb-4 sm:h-[calc(100vh-300px)]"
             >
               {messages.length === 0 ? (
                 <div className="mt-8 text-center">
