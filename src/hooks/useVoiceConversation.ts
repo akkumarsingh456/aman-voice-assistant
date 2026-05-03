@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrbState } from "@/components/AmanOrb";
 import { supabase } from "@/integrations/supabase/client";
+import { getStoredModel } from "@/lib/aiModels";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
