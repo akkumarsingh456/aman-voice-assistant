@@ -6,6 +6,7 @@ import { NotebookPanel } from "@/components/NotebookPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
+import { ModelPicker } from "@/components/ModelPicker";
 import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
@@ -319,6 +320,10 @@ function HomePage() {
           !micBlocked &&
           micPermission === "granted" &&
           orbState === "idle" && <TestMicButton />}
+
+        <div className="flex w-full items-center justify-center">
+          <ModelPicker />
+        </div>
 
         <form onSubmit={handleSend} className="flex w-full gap-2">
           <Input

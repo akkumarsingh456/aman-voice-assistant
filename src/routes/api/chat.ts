@@ -40,6 +40,7 @@ export const Route = createFileRoute("/api/chat")({
           const body = (await request.json().catch(() => ({}))) as {
             messages?: Array<{ role: string; content: string }>;
             conversation_id?: string;
+            model?: string;
           };
           const incoming = Array.isArray(body.messages) ? body.messages : [];
           if (incoming.length === 0) {
@@ -85,8 +86,8 @@ export const Route = createFileRoute("/api/chat")({
             content: r.content,
           }));
 
-          // Run AI with tools
-          const reply = await chatWithTools(history, { supabase, userId });
+          // Run AI with tools (model selectable per request)
+          const reply = await chatWithTools(history, { supabase, userId }, body.model);
 
           // Persist assistant reply
           await supabase.from("messages").insert({
