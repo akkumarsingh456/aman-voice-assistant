@@ -321,6 +321,10 @@ function HomePage() {
           micPermission === "granted" &&
           orbState === "idle" && <TestMicButton />}
 
+        <div className="flex w-full items-center justify-center">
+          <ModelPicker />
+        </div>
+
         <form onSubmit={handleSend} className="flex w-full gap-2">
           <Input
             value={text}
