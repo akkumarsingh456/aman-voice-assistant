@@ -213,7 +213,7 @@ function HomePage() {
           <TabsContent value="chat" className="mt-3 flex-1">
             <div
               ref={scrollRef}
-              className="h-[calc(100vh-330px)] overflow-y-auto pb-4"
+              className="h-[calc(100vh-280px)] overflow-y-auto pb-4 sm:h-[calc(100vh-300px)]"
             >
               {messages.length === 0 ? (
                 <div className="mt-8 text-center">
@@ -277,24 +277,20 @@ function HomePage() {
       </div>
 
       {/* Orb + controls (always visible at bottom) */}
-      <div className="sticky bottom-0 mx-auto flex w-full max-w-2xl flex-col items-center gap-3 bg-gradient-to-t from-background via-background/95 to-background/0 px-4 pb-6 pt-4">
+      <div className="sticky bottom-0 mx-auto flex w-full max-w-2xl flex-col items-center gap-2 bg-gradient-to-t from-background via-background/95 to-background/0 px-4 pb-4 pt-2">
         {!capabilities.recognition && (
-          <div className="glass w-full rounded-xl px-4 py-3 text-center text-xs text-muted-foreground">
-            Voice input isn't supported in this browser. You can still type below.
+          <div className="glass w-full rounded-full px-3 py-1.5 text-center text-[11px] text-muted-foreground">
+            Voice input isn't supported — type below.
           </div>
         )}
 
         {capabilities.recognition && micBlocked && (
-          <div className="glass w-full rounded-xl border border-destructive/30 px-4 py-3 text-xs text-foreground">
-            <div className="flex items-start gap-2">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              <div>
-                <p className="font-medium text-destructive">Microphone access blocked</p>
-                <p className="mt-1 text-muted-foreground">
-                  Open site settings → set Microphone to "Allow", then reload.
-                </p>
-              </div>
-            </div>
+          <div className="glass flex w-full items-center gap-2 rounded-full border border-destructive/30 px-3 py-1.5 text-[11px]">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
+            <span className="truncate text-muted-foreground">
+              <span className="font-medium text-destructive">Mic blocked.</span>{" "}
+              Allow it in site settings, then reload.
+            </span>
           </div>
         )}
 
@@ -305,9 +301,9 @@ function HomePage() {
               variant="secondary"
               size="sm"
               onClick={() => void requestMicPermission()}
-              className="gap-2 rounded-full"
+              className="h-7 gap-1.5 rounded-full px-3 text-xs"
             >
-              <Mic className="h-4 w-4" />
+              <Mic className="h-3.5 w-3.5" />
               Enable microphone
             </Button>
           )}
@@ -316,7 +312,7 @@ function HomePage() {
           state={orbState}
           onTap={startListening}
           audioLevel={audioLevel}
-          size={180}
+          size={120}
         />
 
         {capabilities.recognition &&
@@ -324,12 +320,12 @@ function HomePage() {
           micPermission === "granted" &&
           orbState === "idle" && <TestMicButton />}
 
-        <form onSubmit={handleSend} className="mt-1 flex w-full gap-2">
+        <form onSubmit={handleSend} className="flex w-full gap-2">
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message…"
-            className="glass border-border/50"
+            className="glass h-10 border-border/50"
           />
           <Button type="submit" size="icon" disabled={!text.trim()}>
             <Send className="h-4 w-4" />
