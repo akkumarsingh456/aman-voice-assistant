@@ -303,20 +303,34 @@ export async function runTool(
 
 // ─── AI call with tool loop (non-streaming, used by Telegram) ───
 
+const ALLOWED_MODELS = new Set([
+  "google/gemini-3-flash-preview",
+  "google/gemini-3.1-pro-preview",
+  "google/gemini-2.5-pro",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-flash-lite",
+  "openai/gpt-5",
+  "openai/gpt-5-mini",
+  "openai/gpt-5-nano",
+  "openai/gpt-5.2",
+]);
+
 export async function chatWithTools(
   history: Array<{ role: string; content: string }>,
   ctx: ToolCtx,
+  model?: string,
 ): Promise<string> {
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
+  const chosen = model && ALLOWED_MODELS.has(model) ? model : "google/gemini-3-flash-preview";
   const messages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
 
   for (let step = 0; step < 4; step++) {
     const r = await fetch(AI_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages, tools: TOOLS }),
+      body: JSON.stringify({ model: chosen, messages, tools: TOOLS }),
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
