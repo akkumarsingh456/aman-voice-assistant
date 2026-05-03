@@ -40,6 +40,7 @@ export const Route = createFileRoute("/api/chat")({
           const body = (await request.json().catch(() => ({}))) as {
             messages?: Array<{ role: string; content: string }>;
             conversation_id?: string;
+            model?: string;
           };
           const incoming = Array.isArray(body.messages) ? body.messages : [];
           if (incoming.length === 0) {
