@@ -212,6 +212,7 @@ export function useVoiceConversation() {
           body: JSON.stringify({
             messages: history,
             conversation_id: conversationIdRef.current,
+            model: getStoredModel(),
           }),
           signal: controller.signal,
         });
