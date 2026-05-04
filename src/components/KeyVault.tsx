@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Eye, EyeOff, Trash2, Check } from "lucide-react";
+import { KeyRound, Eye, EyeOff, Trash2, Check, Loader2, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,67 @@ import {
   setDeepSeekKey,
 } from "@/lib/aiModels";
 
+type TestState = "idle" | "testing" | "ok" | "fail";
+
 export function KeyVault() {
   const [open, setOpen] = useState(false);
   const [openai, setOpenai] = useState("");
   const [deepseek, setDeepseek] = useState("");
   const [showOA, setShowOA] = useState(false);
   const [showDS, setShowDS] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [oaState, setOaState] = useState<TestState>("idle");
+  const [dsState, setDsState] = useState<TestState>("idle");
+
+  const testKey = async (
+    url: string,
+    key: string,
+  ): Promise<{ ok: boolean; msg: string }> => {
+    if (!key) return { ok: false, msg: "empty" };
+    try {
+      const r = await fetch(url, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (r.ok) return { ok: true, msg: "valid" };
+      if (r.status === 401) return { ok: false, msg: "invalid key" };
+      return { ok: false, msg: `HTTP ${r.status}` };
+    } catch (err) {
+      return { ok: false, msg: err instanceof Error ? err.message : "network error" };
+    }
+  };
+
+  const runTests = async () => {
+    setTesting(true);
+    setOaState("idle");
+    setDsState("idle");
+    const oa = openai.trim();
+    const ds = deepseek.trim();
+
+    const tasks: Promise<void>[] = [];
+    if (oa) {
+      setOaState("testing");
+      tasks.push(
+        testKey("https://api.openai.com/v1/models", oa).then((r) => {
+          setOaState(r.ok ? "ok" : "fail");
+          if (r.ok) toast.success("OpenAI key works ✓");
+          else toast.error(`OpenAI: ${r.msg}`);
+        }),
+      );
+    }
+    if (ds) {
+      setDsState("testing");
+      tasks.push(
+        testKey("https://api.deepseek.com/v1/models", ds).then((r) => {
+          setDsState(r.ok ? "ok" : "fail");
+          if (r.ok) toast.success("DeepSeek key works ✓");
+          else toast.error(`DeepSeek: ${r.msg}`);
+        }),
+      );
+    }
+    if (tasks.length === 0) toast.message("Paste a key first");
+    await Promise.all(tasks);
+    setTesting(false);
+  };
 
   useEffect(() => {
     if (open) {
