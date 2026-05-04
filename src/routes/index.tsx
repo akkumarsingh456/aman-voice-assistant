@@ -7,6 +7,7 @@ import { RemindersPanel } from "@/components/RemindersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
 import { ModelPicker } from "@/components/ModelPicker";
+import { KeyVault } from "@/components/KeyVault";
 import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
@@ -322,7 +323,10 @@ function HomePage() {
           orbState === "idle" && <TestMicButton />}
 
         <div className="flex w-full items-center justify-center">
-          <ModelPicker />
+          <div className="flex items-center gap-1.5">
+            <ModelPicker />
+            <KeyVault />
+          </div>
         </div>
 
         <form onSubmit={handleSend} className="flex w-full gap-2">

@@ -313,24 +313,49 @@ const ALLOWED_MODELS = new Set([
   "openai/gpt-5-mini",
   "openai/gpt-5-nano",
   "openai/gpt-5.2",
+  "deepseek/deepseek-chat",
+  "deepseek/deepseek-reasoner",
+  "openai-direct/gpt-4o",
+  "openai-direct/gpt-4o-mini",
 ]);
+
+const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export async function chatWithTools(
   history: Array<{ role: string; content: string }>,
   ctx: ToolCtx,
   model?: string,
+  byokKey?: string,
 ): Promise<string> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
-
   const chosen = model && ALLOWED_MODELS.has(model) ? model : "google/gemini-3-flash-preview";
+
+  // Decide endpoint + auth + outbound model id
+  let endpoint = AI_URL;
+  let authKey = process.env.LOVABLE_API_KEY ?? "";
+  let outboundModel = chosen;
+
+  if (chosen.startsWith("deepseek/")) {
+    if (!byokKey) throw new Error("DeepSeek key missing — paste it in the key vault.");
+    endpoint = DEEPSEEK_URL;
+    authKey = byokKey;
+    outboundModel = chosen.replace("deepseek/", "");
+  } else if (chosen.startsWith("openai-direct/")) {
+    if (!byokKey) throw new Error("OpenAI key missing — paste it in the key vault.");
+    endpoint = OPENAI_URL;
+    authKey = byokKey;
+    outboundModel = chosen.replace("openai-direct/", "");
+  } else if (!authKey) {
+    throw new Error("LOVABLE_API_KEY missing");
+  }
+
   const messages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
 
   for (let step = 0; step < 4; step++) {
-    const r = await fetch(AI_URL, {
+    const r = await fetch(endpoint, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: chosen, messages, tools: TOOLS }),
+      headers: { Authorization: `Bearer ${authKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: outboundModel, messages, tools: TOOLS }),
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
