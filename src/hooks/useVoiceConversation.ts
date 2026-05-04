@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrbState } from "@/components/AmanOrb";
 import { supabase } from "@/integrations/supabase/client";
-import { getStoredModel } from "@/lib/aiModels";
+import { getStoredModel, getKeyForModel } from "@/lib/aiModels";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -203,16 +203,21 @@ export function useVoiceConversation() {
         const token = sess.session?.access_token;
         if (!token) throw new Error("Please sign in.");
 
+        const selectedModel = getStoredModel();
+        const byokKey = getKeyForModel(selectedModel);
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+        if (byokKey) headers["x-byok-key"] = byokKey;
+
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           body: JSON.stringify({
             messages: history,
             conversation_id: conversationIdRef.current,
-            model: getStoredModel(),
+            model: selectedModel,
           }),
           signal: controller.signal,
         });

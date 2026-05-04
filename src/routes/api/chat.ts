@@ -86,8 +86,11 @@ export const Route = createFileRoute("/api/chat")({
             content: r.content,
           }));
 
+          // BYOK key passed via header (never logged, never persisted)
+          const byokKey = request.headers.get("x-byok-key") ?? undefined;
+
           // Run AI with tools (model selectable per request)
-          const reply = await chatWithTools(history, { supabase, userId }, body.model);
+          const reply = await chatWithTools(history, { supabase, userId }, body.model, byokKey);
 
           // Persist assistant reply
           await supabase.from("messages").insert({
