@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Eye, EyeOff, Trash2, Check } from "lucide-react";
+import { KeyRound, Eye, EyeOff, Trash2, Check, Loader2, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,67 @@ import {
   setDeepSeekKey,
 } from "@/lib/aiModels";
 
+type TestState = "idle" | "testing" | "ok" | "fail";
+
 export function KeyVault() {
   const [open, setOpen] = useState(false);
   const [openai, setOpenai] = useState("");
   const [deepseek, setDeepseek] = useState("");
   const [showOA, setShowOA] = useState(false);
   const [showDS, setShowDS] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [oaState, setOaState] = useState<TestState>("idle");
+  const [dsState, setDsState] = useState<TestState>("idle");
+
+  const testKey = async (
+    url: string,
+    key: string,
+  ): Promise<{ ok: boolean; msg: string }> => {
+    if (!key) return { ok: false, msg: "empty" };
+    try {
+      const r = await fetch(url, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (r.ok) return { ok: true, msg: "valid" };
+      if (r.status === 401) return { ok: false, msg: "invalid key" };
+      return { ok: false, msg: `HTTP ${r.status}` };
+    } catch (err) {
+      return { ok: false, msg: err instanceof Error ? err.message : "network error" };
+    }
+  };
+
+  const runTests = async () => {
+    setTesting(true);
+    setOaState("idle");
+    setDsState("idle");
+    const oa = openai.trim();
+    const ds = deepseek.trim();
+
+    const tasks: Promise<void>[] = [];
+    if (oa) {
+      setOaState("testing");
+      tasks.push(
+        testKey("https://api.openai.com/v1/models", oa).then((r) => {
+          setOaState(r.ok ? "ok" : "fail");
+          if (r.ok) toast.success("OpenAI key works ✓");
+          else toast.error(`OpenAI: ${r.msg}`);
+        }),
+      );
+    }
+    if (ds) {
+      setDsState("testing");
+      tasks.push(
+        testKey("https://api.deepseek.com/v1/models", ds).then((r) => {
+          setDsState(r.ok ? "ok" : "fail");
+          if (r.ok) toast.success("DeepSeek key works ✓");
+          else toast.error(`DeepSeek: ${r.msg}`);
+        }),
+      );
+    }
+    if (tasks.length === 0) toast.message("Paste a key first");
+    await Promise.all(tasks);
+    setTesting(false);
+  };
 
   useEffect(() => {
     if (open) {
@@ -77,7 +132,10 @@ export function KeyVault() {
 
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label htmlFor="oa-key" className="text-xs">OpenAI API key</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="oa-key" className="text-xs">OpenAI API key</Label>
+              <StatusBadge state={oaState} />
+            </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
                 <Input
@@ -85,7 +143,7 @@ export function KeyVault() {
                   type={showOA ? "text" : "password"}
                   placeholder="sk-proj-..."
                   value={openai}
-                  onChange={(e) => setOpenai(e.target.value)}
+                  onChange={(e) => { setOpenai(e.target.value); setOaState("idle"); }}
                   autoComplete="off"
                   spellCheck={false}
                   className="pr-9 font-mono text-xs"
@@ -107,7 +165,10 @@ export function KeyVault() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ds-key" className="text-xs">DeepSeek API key</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="ds-key" className="text-xs">DeepSeek API key</Label>
+              <StatusBadge state={dsState} />
+            </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
                 <Input
@@ -115,7 +176,7 @@ export function KeyVault() {
                   type={showDS ? "text" : "password"}
                   placeholder="sk-..."
                   value={deepseek}
-                  onChange={(e) => setDeepseek(e.target.value)}
+                  onChange={(e) => { setDeepseek(e.target.value); setDsState("idle"); }}
                   autoComplete="off"
                   spellCheck={false}
                   className="pr-9 font-mono text-xs"
@@ -136,11 +197,42 @@ export function KeyVault() {
             <p className="text-[10px] text-muted-foreground">platform.deepseek.com/api_keys</p>
           </div>
 
-          <Button onClick={save} className="w-full gap-2">
-            <Check className="h-4 w-4" /> Save keys
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={runTests}
+              disabled={testing}
+              className="flex-1 gap-2"
+            >
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Test keys
+            </Button>
+            <Button onClick={save} className="flex-1 gap-2">
+              <Check className="h-4 w-4" /> Save
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function StatusBadge({ state }: { state: TestState }) {
+  if (state === "idle") return null;
+  if (state === "testing")
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> testing…
+      </span>
+    );
+  if (state === "ok")
+    return (
+      <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-500">
+        <Check className="h-3 w-3" /> valid
+      </span>
+    );
+  return (
+    <span className="text-[10px] font-medium text-destructive">✕ invalid</span>
   );
 }
