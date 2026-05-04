@@ -1,0 +1,146 @@
+import { useEffect, useState } from "react";
+import { KeyRound, Eye, EyeOff, Trash2, Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
+  getOpenAIKey,
+  setOpenAIKey,
+  getDeepSeekKey,
+  setDeepSeekKey,
+} from "@/lib/aiModels";
+
+export function KeyVault() {
+  const [open, setOpen] = useState(false);
+  const [openai, setOpenai] = useState("");
+  const [deepseek, setDeepseek] = useState("");
+  const [showOA, setShowOA] = useState(false);
+  const [showDS, setShowDS] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setOpenai(getOpenAIKey());
+      setDeepseek(getDeepSeekKey());
+    }
+  }, [open]);
+
+  const save = () => {
+    const oa = openai.trim();
+    const ds = deepseek.trim();
+    if (oa && !oa.startsWith("sk-")) {
+      toast.error("OpenAI keys start with 'sk-'");
+      return;
+    }
+    if (ds && !ds.startsWith("sk-")) {
+      toast.error("DeepSeek keys start with 'sk-'");
+      return;
+    }
+    setOpenAIKey(oa);
+    setDeepSeekKey(ds);
+    toast.success("Keys saved to this browser only");
+    setOpen(false);
+  };
+
+  const clearOA = () => { setOpenai(""); setOpenAIKey(""); toast.success("OpenAI key removed"); };
+  const clearDS = () => { setDeepseek(""); setDeepSeekKey(""); toast.success("DeepSeek key removed"); };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="glass h-7 w-7 rounded-full border border-border/50 p-0"
+          title="Manage AI keys"
+        >
+          <KeyRound className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="glass max-w-md border-border/50">
+        <DialogHeader>
+          <DialogTitle>Your AI keys</DialogTitle>
+          <DialogDescription className="text-xs">
+            Stored only in this browser (localStorage). Used when you pick a BYOK model.
+            Never sent to chat history. Revoke leaked keys at the provider's dashboard.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="oa-key" className="text-xs">OpenAI API key</Label>
+            <div className="flex gap-1.5">
+              <div className="relative flex-1">
+                <Input
+                  id="oa-key"
+                  type={showOA ? "text" : "password"}
+                  placeholder="sk-proj-..."
+                  value={openai}
+                  onChange={(e) => setOpenai(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="pr-9 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOA((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  aria-label="Toggle visibility"
+                >
+                  {showOA ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button type="button" size="icon" variant="ghost" onClick={clearOA} title="Remove">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">platform.openai.com/api-keys</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ds-key" className="text-xs">DeepSeek API key</Label>
+            <div className="flex gap-1.5">
+              <div className="relative flex-1">
+                <Input
+                  id="ds-key"
+                  type={showDS ? "text" : "password"}
+                  placeholder="sk-..."
+                  value={deepseek}
+                  onChange={(e) => setDeepseek(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="pr-9 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDS((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  aria-label="Toggle visibility"
+                >
+                  {showDS ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button type="button" size="icon" variant="ghost" onClick={clearDS} title="Remove">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">platform.deepseek.com/api_keys</p>
+          </div>
+
+          <Button onClick={save} className="w-full gap-2">
+            <Check className="h-4 w-4" /> Save keys
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
