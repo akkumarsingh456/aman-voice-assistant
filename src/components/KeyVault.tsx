@@ -62,7 +62,7 @@ export function KeyVault() {
     if (oa) {
       setOaState("testing");
       tasks.push(
-        testKey("https://api.openai.com/v1/models", oa).then((r) => {
+        testKey("openai", oa).then((r) => {
           setOaState(r.ok ? "ok" : "fail");
           if (r.ok) toast.success("OpenAI key works ✓");
           else toast.error(`OpenAI: ${r.msg}`);
