@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/chat")({
             messages?: Array<{ role: string; content: string }>;
             conversation_id?: string;
             model?: string;
+            attachments?: Array<{ name: string; mimeType: string; text?: string; dataUrl?: string }>;
           };
           const incoming = Array.isArray(body.messages) ? body.messages : [];
           if (incoming.length === 0) {
@@ -66,12 +67,16 @@ export const Route = createFileRoute("/api/chat")({
             conversationId = conv.id;
           }
 
-          // Persist the user message
+          // Persist the user message (text + attachment names appended for history)
+          const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+          const persistedUser = attachments.length
+            ? `${lastUser.content}\n\n📎 ${attachments.map((a) => a.name).join(", ")}`
+            : lastUser.content;
           await supabase.from("messages").insert({
             conversation_id: conversationId,
             user_id: userId,
             role: "user",
-            content: lastUser.content,
+            content: persistedUser,
           });
 
           // Load full conversation history (server-side, authoritative)
@@ -89,8 +94,14 @@ export const Route = createFileRoute("/api/chat")({
           // BYOK key passed via header (never logged, never persisted)
           const byokKey = request.headers.get("x-byok-key") ?? undefined;
 
-          // Run AI with tools (model selectable per request)
-          const reply = await chatWithTools(history, { supabase, userId }, body.model, byokKey);
+          // Run AI with tools (model selectable per request, attachments multimodal)
+          const reply = await chatWithTools(
+            history,
+            { supabase, userId },
+            body.model,
+            byokKey,
+            attachments,
+          );
 
           // Persist assistant reply
           await supabase.from("messages").insert({
