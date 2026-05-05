@@ -322,24 +322,65 @@ const ALLOWED_MODELS = new Set([
 const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
+export type Attachment = {
+  name: string;
+  mimeType: string;
+  // For text-like files, `text` is the decoded content.
+  // For binary (images, pdf, audio), `dataUrl` is "data:<mime>;base64,<...>".
+  text?: string;
+  dataUrl?: string;
+};
+
+function buildLastUserContent(
+  text: string,
+  attachments: Attachment[] | undefined,
+  supportsMultimodal: boolean,
+): any {
+  if (!attachments || attachments.length === 0) return text;
+
+  // Inline text-like files into the prompt for ALL providers.
+  const textParts: string[] = [];
+  const mediaParts: Array<{ type: "image_url"; image_url: { url: string } }> = [];
+
+  for (const a of attachments) {
+    if (a.text != null) {
+      textParts.push(`\n\n--- File: ${a.name} (${a.mimeType}) ---\n${a.text}\n--- end ${a.name} ---`);
+    } else if (a.dataUrl && supportsMultimodal) {
+      mediaParts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+    } else if (a.dataUrl) {
+      // Provider doesn't support media (e.g. DeepSeek text-only) — note it.
+      textParts.push(`\n\n[Attached binary file "${a.name}" (${a.mimeType}) — current model can't read binaries; switch to a Gemini/GPT model.]`);
+    }
+  }
+
+  const combinedText = (text || "Please analyze the attached file(s).") + textParts.join("");
+  if (mediaParts.length === 0) return combinedText;
+  return [{ type: "text", text: combinedText }, ...mediaParts];
+}
+
 export async function chatWithTools(
-  history: Array<{ role: string; content: string }>,
+  history: Array<{ role: string; content: any }>,
   ctx: ToolCtx,
   model?: string,
   byokKey?: string,
+  attachments?: Attachment[],
 ): Promise<string> {
   const chosen = model && ALLOWED_MODELS.has(model) ? model : "google/gemini-3-flash-preview";
 
-  // Decide endpoint + auth + outbound model id
   let endpoint = AI_URL;
   let authKey = process.env.LOVABLE_API_KEY ?? "";
   let outboundModel = chosen;
+  let supportsTools = true;
+  let supportsMultimodal = true;
 
   if (chosen.startsWith("deepseek/")) {
     if (!byokKey) throw new Error("DeepSeek key missing — paste it in the key vault.");
     endpoint = DEEPSEEK_URL;
     authKey = byokKey;
     outboundModel = chosen.replace("deepseek/", "");
+    // deepseek-reasoner does NOT support function/tool calling
+    if (outboundModel === "deepseek-reasoner") supportsTools = false;
+    supportsMultimodal = false; // DeepSeek API is text-only
   } else if (chosen.startsWith("openai-direct/")) {
     if (!byokKey) throw new Error("OpenAI key missing — paste it in the key vault.");
     endpoint = OPENAI_URL;
@@ -351,15 +392,43 @@ export async function chatWithTools(
 
   const messages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
 
+  // Patch the last user message with attachments (multimodal content)
+  if (attachments && attachments.length > 0) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        const orig = typeof messages[i].content === "string" ? messages[i].content : "";
+        messages[i] = {
+          role: "user",
+          content: buildLastUserContent(orig, attachments, supportsMultimodal),
+        };
+        break;
+      }
+    }
+  }
+
   for (let step = 0; step < 4; step++) {
-    const r = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${authKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: outboundModel, messages, tools: TOOLS }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    let r: Response;
+    try {
+      const body: any = { model: outboundModel, messages };
+      if (supportsTools) body.tools = TOOLS;
+      r = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      clearTimeout(timeout);
+      if (e?.name === "AbortError") throw new Error(`${chosen}: timed out after 90s.`);
+      throw new Error(`${chosen}: network error — ${e?.message ?? e}`);
+    }
+    clearTimeout(timeout);
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
-      throw new Error(`AI gateway ${r.status}: ${txt.slice(0, 200)}`);
+      console.error(`AI ${chosen} ${r.status}:`, txt.slice(0, 500));
+      throw new Error(`${chosen} ${r.status}: ${txt.slice(0, 200)}`);
     }
     const j = await r.json();
     const msg = j.choices?.[0]?.message;

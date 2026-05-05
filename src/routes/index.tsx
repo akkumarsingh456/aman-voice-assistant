@@ -42,7 +42,10 @@ import {
   MessageCircle,
   FileDown,
   Clock,
+  Paperclip,
+  X,
 } from "lucide-react";
+import { readFilesForChat, type ChatAttachment } from "@/lib/readFiles";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -79,6 +82,9 @@ function HomePage() {
   const [text, setText] = useState("");
   const [tab, setTab] = useState("chat");
   const [refreshTick, setRefreshTick] = useState(0);
+  const [pending, setPending] = useState<ChatAttachment[]>([]);
+  const [reading, setReading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,9 +117,26 @@ function HomePage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
-    if (!t) return;
+    if (!t && pending.length === 0) return;
+    const atts = pending;
     setText("");
-    await sendText(t);
+    setPending([]);
+    await sendText(t, atts);
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setReading(true);
+    try {
+      const atts = await readFilesForChat(files);
+      setPending((p) => [...p, ...atts]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't read one of the files.");
+    } finally {
+      setReading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -329,14 +352,55 @@ function HomePage() {
           </div>
         </div>
 
+        {pending.length > 0 && (
+          <div className="flex w-full flex-wrap gap-1.5">
+            {pending.map((a, i) => (
+              <span
+                key={i}
+                className="glass flex items-center gap-1.5 rounded-full border border-border/50 px-2.5 py-1 text-[11px]"
+              >
+                <Paperclip className="h-3 w-3 text-primary" />
+                <span className="max-w-[140px] truncate" title={a.name}>{a.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+                  className="text-muted-foreground hover:text-destructive"
+                  aria-label="Remove attachment"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <form onSubmit={handleSend} className="flex w-full gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => void handleFiles(e.target.files)}
+            accept="image/*,application/pdf,text/*,.md,.html,.htm,.csv,.json,.xml,.docx,.xlsx,.pptx"
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="glass h-10 w-10 shrink-0 border border-border/50"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={reading}
+            title="Attach files (images, PDFs, docs — no limit)"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Type a message…"
+            placeholder={pending.length ? "Ask about the attached file(s)…" : "Type a message…"}
             className="glass h-10 border-border/50"
           />
-          <Button type="submit" size="icon" disabled={!text.trim()}>
+          <Button type="submit" size="icon" disabled={!text.trim() && pending.length === 0}>
             <Send className="h-4 w-4" />
           </Button>
         </form>

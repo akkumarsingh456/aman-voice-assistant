@@ -187,7 +187,10 @@ export function useVoiceConversation() {
 
   // ───── Send to AI (non-streaming, tool-aware) ─────
   const sendToAI = useCallback(
-    async (history: ChatMessage[]) => {
+    async (
+      history: ChatMessage[],
+      attachments?: Array<{ name: string; mimeType: string; text?: string; dataUrl?: string }>,
+    ) => {
       setOrbState("thinking");
       const lastUser = history[history.length - 1]?.content ?? "";
       ttsLangRef.current = detectLang(lastUser);
@@ -218,6 +221,7 @@ export function useVoiceConversation() {
             messages: history,
             conversation_id: conversationIdRef.current,
             model: selectedModel,
+            attachments: attachments ?? [],
           }),
           signal: controller.signal,
         });
@@ -276,12 +280,20 @@ export function useVoiceConversation() {
   );
 
   const sendText = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      attachments?: Array<{ name: string; mimeType: string; text?: string; dataUrl?: string }>,
+    ) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
-      const next: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
+      if (!trimmed && (!attachments || attachments.length === 0)) return;
+      const display = attachments?.length
+        ? `${trimmed}${trimmed ? "\n\n" : ""}📎 ${attachments.map((a) => a.name).join(", ")}`
+        : trimmed;
+      const next: ChatMessage[] = [...messages, { role: "user", content: display }];
       setMessages(next);
-      await sendToAI(next);
+      // Send original text (without the 📎 line) to AI; backend re-attaches.
+      const aiHistory = [...messages, { role: "user" as const, content: trimmed || "Please analyze the attached file(s)." }];
+      await sendToAI(aiHistory, attachments);
     },
     [messages, sendToAI],
   );
