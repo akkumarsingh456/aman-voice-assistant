@@ -202,7 +202,7 @@ export function KeyVault() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="ds-key" className="text-xs">DeepSeek API key</Label>
-              <StatusBadge state={dsState} />
+              <StatusBadge state={dsState} at={ts.dsAt} ok={ts.dsOk} />
             </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
