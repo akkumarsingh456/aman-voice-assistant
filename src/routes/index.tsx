@@ -117,9 +117,26 @@ function HomePage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
-    if (!t) return;
+    if (!t && pending.length === 0) return;
+    const atts = pending;
     setText("");
-    await sendText(t);
+    setPending([]);
+    await sendText(t, atts);
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setReading(true);
+    try {
+      const atts = await readFilesForChat(files);
+      setPending((p) => [...p, ...atts]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't read one of the files.");
+    } finally {
+      setReading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
