@@ -21,6 +21,29 @@ import {
 
 type TestState = "idle" | "testing" | "ok" | "fail";
 
+const TS_KEY = "aman:byok:test-timestamps";
+type StoredTs = { oaAt?: number; oaOk?: boolean; dsAt?: number; dsOk?: boolean };
+
+function loadTs(): StoredTs {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(window.localStorage.getItem(TS_KEY) ?? "{}"); } catch { return {}; }
+}
+function saveTs(v: StoredTs) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(TS_KEY, JSON.stringify(v));
+}
+function fmtTs(ms?: number): string {
+  if (!ms) return "";
+  const diff = Date.now() - ms;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(ms).toLocaleString();
+}
+
 export function KeyVault() {
   const [open, setOpen] = useState(false);
   const [openai, setOpenai] = useState("");
@@ -30,6 +53,7 @@ export function KeyVault() {
   const [testing, setTesting] = useState(false);
   const [oaState, setOaState] = useState<TestState>("idle");
   const [dsState, setDsState] = useState<TestState>("idle");
+  const [ts, setTs] = useState<StoredTs>({});
 
   // Calls our server-side proxy so the raw key never goes to a third-party
   // origin from the browser (no CORS, no key in browser network logs to other domains).
@@ -57,6 +81,7 @@ export function KeyVault() {
     setDsState("idle");
     const oa = openai.trim();
     const ds = deepseek.trim();
+    const next: StoredTs = { ...ts };
 
     const tasks: Promise<void>[] = [];
     if (oa) {
@@ -64,6 +89,8 @@ export function KeyVault() {
       tasks.push(
         testKey("openai", oa).then((r) => {
           setOaState(r.ok ? "ok" : "fail");
+          next.oaAt = Date.now();
+          next.oaOk = r.ok;
           if (r.ok) toast.success("OpenAI key works ✓");
           else toast.error(`OpenAI: ${r.msg}`);
         }),
@@ -74,6 +101,8 @@ export function KeyVault() {
       tasks.push(
         testKey("deepseek", ds).then((r) => {
           setDsState(r.ok ? "ok" : "fail");
+          next.dsAt = Date.now();
+          next.dsOk = r.ok;
           if (r.ok) toast.success("DeepSeek key works ✓");
           else toast.error(`DeepSeek: ${r.msg}`);
         }),
@@ -81,6 +110,8 @@ export function KeyVault() {
     }
     if (tasks.length === 0) toast.message("Paste a key first");
     await Promise.all(tasks);
+    setTs(next);
+    saveTs(next);
     setTesting(false);
   };
 
@@ -88,6 +119,7 @@ export function KeyVault() {
     if (open) {
       setOpenai(getOpenAIKey());
       setDeepseek(getDeepSeekKey());
+      setTs(loadTs());
     }
   }, [open]);
 
@@ -137,7 +169,7 @@ export function KeyVault() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="oa-key" className="text-xs">OpenAI API key</Label>
-              <StatusBadge state={oaState} />
+              <StatusBadge state={oaState} at={ts.oaAt} ok={ts.oaOk} />
             </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
@@ -170,7 +202,7 @@ export function KeyVault() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="ds-key" className="text-xs">DeepSeek API key</Label>
-              <StatusBadge state={dsState} />
+              <StatusBadge state={dsState} at={ts.dsAt} ok={ts.dsOk} />
             </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
@@ -221,21 +253,24 @@ export function KeyVault() {
   );
 }
 
-function StatusBadge({ state }: { state: TestState }) {
-  if (state === "idle") return null;
+function StatusBadge({ state, at, ok }: { state: TestState; at?: number; ok?: boolean }) {
+  const tsLabel = at ? ` · ${fmtTs(at)}` : "";
   if (state === "testing")
     return (
       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" /> testing…
       </span>
     );
-  if (state === "ok")
+  const effective: TestState =
+    state !== "idle" ? state : at ? (ok ? "ok" : "fail") : "idle";
+  if (effective === "idle") return null;
+  if (effective === "ok")
     return (
       <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-500">
-        <Check className="h-3 w-3" /> valid
+        <Check className="h-3 w-3" /> valid{tsLabel}
       </span>
     );
   return (
-    <span className="text-[10px] font-medium text-destructive">✕ invalid</span>
+    <span className="text-[10px] font-medium text-destructive">✕ invalid{tsLabel}</span>
   );
 }
