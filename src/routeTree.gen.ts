@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTestKeyRouteImport } from './routes/api/test-key'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiPublicTelegramPollRouteImport } from './routes/api/public/telegram/poll'
 
@@ -22,6 +23,11 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTestKeyRoute = ApiTestKeyRouteImport.update({
+  id: '/api/test-key',
+  path: '/api/test-key',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/test-key': typeof ApiTestKeyRoute
   '/api/public/telegram/poll': typeof ApiPublicTelegramPollRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/test-key': typeof ApiTestKeyRoute
   '/api/public/telegram/poll': typeof ApiPublicTelegramPollRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,38 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/test-key': typeof ApiTestKeyRoute
   '/api/public/telegram/poll': typeof ApiPublicTelegramPollRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/api/chat' | '/api/public/telegram/poll'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/api/chat'
+    | '/api/test-key'
+    | '/api/public/telegram/poll'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/api/chat' | '/api/public/telegram/poll'
-  id: '__root__' | '/' | '/auth' | '/api/chat' | '/api/public/telegram/poll'
+  to:
+    | '/'
+    | '/auth'
+    | '/api/chat'
+    | '/api/test-key'
+    | '/api/public/telegram/poll'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/api/chat'
+    | '/api/test-key'
+    | '/api/public/telegram/poll'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiTestKeyRoute: typeof ApiTestKeyRoute
   ApiPublicTelegramPollRoute: typeof ApiPublicTelegramPollRoute
 }
 
@@ -83,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/test-key': {
+      id: '/api/test-key'
+      path: '/api/test-key'
+      fullPath: '/api/test-key'
+      preLoaderRoute: typeof ApiTestKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -106,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiTestKeyRoute: ApiTestKeyRoute,
   ApiPublicTelegramPollRoute: ApiPublicTelegramPollRoute,
 }
 export const routeTree = rootRouteImport
