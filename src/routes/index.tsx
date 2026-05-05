@@ -42,7 +42,10 @@ import {
   MessageCircle,
   FileDown,
   Clock,
+  Paperclip,
+  X,
 } from "lucide-react";
+import { readFilesForChat, type ChatAttachment } from "@/lib/readFiles";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
