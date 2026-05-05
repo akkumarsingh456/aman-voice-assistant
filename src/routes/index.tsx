@@ -82,6 +82,9 @@ function HomePage() {
   const [text, setText] = useState("");
   const [tab, setTab] = useState("chat");
   const [refreshTick, setRefreshTick] = useState(0);
+  const [pending, setPending] = useState<ChatAttachment[]>([]);
+  const [reading, setReading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
