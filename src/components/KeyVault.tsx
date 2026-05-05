@@ -21,6 +21,29 @@ import {
 
 type TestState = "idle" | "testing" | "ok" | "fail";
 
+const TS_KEY = "aman:byok:test-timestamps";
+type StoredTs = { oaAt?: number; oaOk?: boolean; dsAt?: number; dsOk?: boolean };
+
+function loadTs(): StoredTs {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(window.localStorage.getItem(TS_KEY) ?? "{}"); } catch { return {}; }
+}
+function saveTs(v: StoredTs) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(TS_KEY, JSON.stringify(v));
+}
+function fmtTs(ms?: number): string {
+  if (!ms) return "";
+  const diff = Date.now() - ms;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(ms).toLocaleString();
+}
+
 export function KeyVault() {
   const [open, setOpen] = useState(false);
   const [openai, setOpenai] = useState("");
@@ -30,6 +53,7 @@ export function KeyVault() {
   const [testing, setTesting] = useState(false);
   const [oaState, setOaState] = useState<TestState>("idle");
   const [dsState, setDsState] = useState<TestState>("idle");
+  const [ts, setTs] = useState<StoredTs>({});
 
   // Calls our server-side proxy so the raw key never goes to a third-party
   // origin from the browser (no CORS, no key in browser network logs to other domains).
