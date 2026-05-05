@@ -31,18 +31,21 @@ export function KeyVault() {
   const [oaState, setOaState] = useState<TestState>("idle");
   const [dsState, setDsState] = useState<TestState>("idle");
 
+  // Calls our server-side proxy so the raw key never goes to a third-party
+  // origin from the browser (no CORS, no key in browser network logs to other domains).
   const testKey = async (
-    url: string,
+    provider: "openai" | "deepseek",
     key: string,
   ): Promise<{ ok: boolean; msg: string }> => {
     if (!key) return { ok: false, msg: "empty" };
     try {
-      const r = await fetch(url, {
-        headers: { Authorization: `Bearer ${key}` },
+      const r = await fetch("/api/test-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, key }),
       });
-      if (r.ok) return { ok: true, msg: "valid" };
-      if (r.status === 401) return { ok: false, msg: "invalid key" };
-      return { ok: false, msg: `HTTP ${r.status}` };
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; msg?: string };
+      return { ok: !!j.ok, msg: j.msg ?? `HTTP ${r.status}` };
     } catch (err) {
       return { ok: false, msg: err instanceof Error ? err.message : "network error" };
     }
