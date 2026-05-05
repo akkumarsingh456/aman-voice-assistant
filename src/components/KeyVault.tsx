@@ -81,6 +81,7 @@ export function KeyVault() {
     setDsState("idle");
     const oa = openai.trim();
     const ds = deepseek.trim();
+    const next: StoredTs = { ...ts };
 
     const tasks: Promise<void>[] = [];
     if (oa) {
@@ -88,6 +89,8 @@ export function KeyVault() {
       tasks.push(
         testKey("openai", oa).then((r) => {
           setOaState(r.ok ? "ok" : "fail");
+          next.oaAt = Date.now();
+          next.oaOk = r.ok;
           if (r.ok) toast.success("OpenAI key works ✓");
           else toast.error(`OpenAI: ${r.msg}`);
         }),
@@ -98,6 +101,8 @@ export function KeyVault() {
       tasks.push(
         testKey("deepseek", ds).then((r) => {
           setDsState(r.ok ? "ok" : "fail");
+          next.dsAt = Date.now();
+          next.dsOk = r.ok;
           if (r.ok) toast.success("DeepSeek key works ✓");
           else toast.error(`DeepSeek: ${r.msg}`);
         }),
@@ -105,6 +110,8 @@ export function KeyVault() {
     }
     if (tasks.length === 0) toast.message("Paste a key first");
     await Promise.all(tasks);
+    setTs(next);
+    saveTs(next);
     setTesting(false);
   };
 
@@ -112,6 +119,7 @@ export function KeyVault() {
     if (open) {
       setOpenai(getOpenAIKey());
       setDeepseek(getDeepSeekKey());
+      setTs(loadTs());
     }
   }, [open]);
 
