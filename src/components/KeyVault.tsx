@@ -253,21 +253,24 @@ export function KeyVault() {
   );
 }
 
-function StatusBadge({ state }: { state: TestState }) {
-  if (state === "idle") return null;
+function StatusBadge({ state, at, ok }: { state: TestState; at?: number; ok?: boolean }) {
+  const tsLabel = at ? ` · ${fmtTs(at)}` : "";
   if (state === "testing")
     return (
       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" /> testing…
       </span>
     );
-  if (state === "ok")
+  const effective: TestState =
+    state !== "idle" ? state : at ? (ok ? "ok" : "fail") : "idle";
+  if (effective === "idle") return null;
+  if (effective === "ok")
     return (
       <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-500">
-        <Check className="h-3 w-3" /> valid
+        <Check className="h-3 w-3" /> valid{tsLabel}
       </span>
     );
   return (
-    <span className="text-[10px] font-medium text-destructive">✕ invalid</span>
+    <span className="text-[10px] font-medium text-destructive">✕ invalid{tsLabel}</span>
   );
 }
