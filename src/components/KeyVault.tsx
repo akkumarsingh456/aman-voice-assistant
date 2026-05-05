@@ -72,7 +72,7 @@ export function KeyVault() {
     if (ds) {
       setDsState("testing");
       tasks.push(
-        testKey("https://api.deepseek.com/v1/models", ds).then((r) => {
+        testKey("deepseek", ds).then((r) => {
           setDsState(r.ok ? "ok" : "fail");
           if (r.ok) toast.success("DeepSeek key works ✓");
           else toast.error(`DeepSeek: ${r.msg}`);
