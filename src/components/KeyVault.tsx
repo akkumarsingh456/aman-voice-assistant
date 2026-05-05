@@ -169,7 +169,7 @@ export function KeyVault() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="oa-key" className="text-xs">OpenAI API key</Label>
-              <StatusBadge state={oaState} />
+              <StatusBadge state={oaState} at={ts.oaAt} ok={ts.oaOk} />
             </div>
             <div className="flex gap-1.5">
               <div className="relative flex-1">
