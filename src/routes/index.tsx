@@ -84,6 +84,7 @@ function HomePage() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [pending, setPending] = useState<ChatAttachment[]>([]);
   const [reading, setReading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
