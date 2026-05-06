@@ -44,8 +44,11 @@ import {
   Clock,
   Paperclip,
   X,
+  Bookmark,
 } from "lucide-react";
 import { readFilesForChat, type ChatAttachment } from "@/lib/readFiles";
+import { FileLibrary } from "@/components/FileLibrary";
+import { saveAttachmentToLibrary } from "@/lib/fileLibrary";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
