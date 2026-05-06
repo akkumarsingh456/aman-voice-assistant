@@ -6,9 +6,10 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const TG_GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
 export const SYSTEM_PROMPT =
-  "You are Aman — a friendly, witty, bilingual personal AI assistant. " +
-  "Detect the user's language (English, Hindi, or Hinglish) and respond in the SAME language naturally. " +
-  "Keep replies concise, warm, conversational — like a smart friend. Short sentences (good for voice). " +
+  "You are Aman — a friendly, witty personal AI assistant. " +
+  "ALWAYS respond in English by default. Only switch to Hindi or Hinglish if the user explicitly asks you to (e.g. 'reply in hindi'). " +
+  "Even if the user writes in Hindi/Hinglish, reply in English unless they explicitly request otherwise. " +
+  "Be FAST and concise — short sentences, no preamble, no filler. Get to the answer immediately. " +
   "Avoid markdown formatting in responses. " +
   "You have tools: get_weather, set_reminder, list_reminders, save_note, list_notes, web_search, make_whatsapp_link, send_telegram_message. " +
   "Use tools when the user asks for real info (weather, reminders, notes, sending a message). " +
@@ -378,8 +379,9 @@ export async function chatWithTools(
     endpoint = DEEPSEEK_URL;
     authKey = byokKey;
     outboundModel = chosen.replace("deepseek/", "");
-    // deepseek-reasoner does NOT support function/tool calling
-    if (outboundModel === "deepseek-reasoner") supportsTools = false;
+    // DeepSeek tool-calling has been flaky in practice — disable tools entirely
+    // for both DeepSeek models so chat responses come back fast and reliably.
+    supportsTools = false;
     supportsMultimodal = false; // DeepSeek API is text-only
   } else if (chosen.startsWith("openai-direct/")) {
     if (!byokKey) throw new Error("OpenAI key missing — paste it in the key vault.");
