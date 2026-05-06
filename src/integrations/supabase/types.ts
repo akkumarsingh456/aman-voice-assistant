@@ -214,6 +214,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_files: {
+        Row: {
+          created_at: string
+          id: string
+          mime_type: string
+          name: string
+          path: string
+          size_bytes: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mime_type?: string
+          name: string
+          path: string
+          size_bytes?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mime_type?: string
+          name?: string
+          path?: string
+          size_bytes?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

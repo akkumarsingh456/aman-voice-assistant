@@ -44,8 +44,11 @@ import {
   Clock,
   Paperclip,
   X,
+  Bookmark,
 } from "lucide-react";
 import { readFilesForChat, type ChatAttachment } from "@/lib/readFiles";
+import { FileLibrary } from "@/components/FileLibrary";
+import { saveAttachmentToLibrary } from "@/lib/fileLibrary";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -409,6 +412,21 @@ function HomePage() {
                 <span className="max-w-[140px] truncate" title={a.name}>{a.name}</span>
                 <button
                   type="button"
+                  onClick={() => {
+                    toast.promise(saveAttachmentToLibrary(a), {
+                      loading: "Saving…",
+                      success: `Saved "${a.name}" to library`,
+                      error: (e) => e?.message ?? "Save failed",
+                    });
+                  }}
+                  className="text-muted-foreground hover:text-primary"
+                  aria-label="Save to library"
+                  title="Save to library"
+                >
+                  <Bookmark className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
                   className="text-muted-foreground hover:text-destructive"
                   aria-label="Remove attachment"
@@ -440,6 +458,8 @@ function HomePage() {
           >
             <Paperclip className="h-4 w-4" />
           </Button>
+          <FileLibrary onImport={(att) => setPending((p) => [...p, att])} />
+
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
