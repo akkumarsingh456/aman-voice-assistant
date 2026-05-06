@@ -141,7 +141,34 @@ function HomePage() {
   };
 
   return (
-    <main className="relative flex min-h-screen flex-col">
+    <main
+      className="relative flex min-h-screen flex-col"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes("Files")) {
+          e.preventDefault();
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.target === e.currentTarget) setDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer?.files?.length) {
+          e.preventDefault();
+          setDragOver(false);
+          void handleFiles(e.dataTransfer.files);
+        }
+      }}
+    >
+      {dragOver && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="glass rounded-3xl border-2 border-dashed border-primary/60 px-10 py-8 text-center">
+            <Paperclip className="mx-auto h-8 w-8 text-primary" />
+            <p className="mt-2 text-base font-medium">Drop files to attach</p>
+            <p className="text-xs text-muted-foreground">PDFs, images, docs — no limit</p>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
