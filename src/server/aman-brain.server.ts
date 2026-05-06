@@ -379,8 +379,9 @@ export async function chatWithTools(
     endpoint = DEEPSEEK_URL;
     authKey = byokKey;
     outboundModel = chosen.replace("deepseek/", "");
-    // deepseek-reasoner does NOT support function/tool calling
-    if (outboundModel === "deepseek-reasoner") supportsTools = false;
+    // DeepSeek tool-calling has been flaky in practice — disable tools entirely
+    // for both DeepSeek models so chat responses come back fast and reliably.
+    supportsTools = false;
     supportsMultimodal = false; // DeepSeek API is text-only
   } else if (chosen.startsWith("openai-direct/")) {
     if (!byokKey) throw new Error("OpenAI key missing — paste it in the key vault.");
