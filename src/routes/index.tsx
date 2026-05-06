@@ -241,16 +241,34 @@ function HomePage() {
               className="h-[calc(100vh-280px)] overflow-y-auto pb-4 sm:h-[calc(100vh-300px)]"
             >
               {messages.length === 0 ? (
-                <div className="mt-8 text-center">
-                  <h2 className="text-2xl font-semibold text-gradient-aurora">
-                    Hi {user.user_metadata?.full_name?.split(" ")[0] ?? "there"} 👋
+                <div className="flex h-full flex-col items-center justify-center px-2 pt-10">
+                  <h2 className="text-gradient-aurora text-center text-4xl font-semibold tracking-tight sm:text-5xl">
+                    Hello, {user.user_metadata?.full_name?.split(" ")[0] ?? "there"}
                   </h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Tap the orb and speak — English, Hindi, or Hinglish.
+                  <p className="mt-3 text-center text-sm text-muted-foreground">
+                    How can I help you today?
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground/80">
-                    Try: "Save this idea — solar phone charger" or "Remind me at 7am tomorrow gym".
-                  </p>
+                  <div className="mt-8 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {[
+                      { t: "Save an idea", s: "Save this idea — solar phone charger", icon: "💡" },
+                      { t: "Set a reminder", s: "Remind me at 7am tomorrow to go to the gym", icon: "⏰" },
+                      { t: "Check the weather", s: "What's the weather in Delhi right now?", icon: "🌤️" },
+                      { t: "Summarize a file", s: "Summarize the attached PDF in 5 bullets", icon: "📄" },
+                    ].map((c) => (
+                      <button
+                        key={c.t}
+                        type="button"
+                        onClick={() => setText(c.s)}
+                        className="glass group flex items-start gap-3 rounded-2xl border border-border/50 p-3.5 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                      >
+                        <span className="text-xl">{c.icon}</span>
+                        <span className="flex-1">
+                          <span className="block text-sm font-medium text-foreground">{c.t}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground line-clamp-2">{c.s}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 pt-4">
